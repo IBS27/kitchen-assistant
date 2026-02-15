@@ -31,7 +31,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# MCP config (contains project refs)
+.mcp.json
 
 # typescript
 *.tsbuildinfo
