@@ -42,10 +42,13 @@ Align on the user journey before building features.
 Set up a stable app foundation and user identity.
 
 ### Build in this phase
-- Authentication (Sign in with Apple + simple backup sign-in method).
+- Authentication (email/password + OAuth backup sign-in method; Apple sign-in deferred temporarily).
 - User profile and preferences setup (dietary preferences, disliked foods, shopping frequency, household size).
 - Basic navigation and app shell.
 - Core data model design for inventory, recipes, schedules, feedback, and shopping lists.
+
+Temporary deviation (February 18, 2026):
+- Sign in with Apple is intentionally deferred until after Phase 1 hardening.
 
 ### Output
 - Users can sign in, set preferences, and access key app sections.

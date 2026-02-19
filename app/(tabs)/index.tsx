@@ -23,7 +23,7 @@ export default function HomeScreen() {
             Hi, {displayName}!
           </Text>
           <Text className="text-base text-kitchen-brown/60">
-            What's cooking today?
+            What&apos;s cooking today?
           </Text>
         </View>
         <Pressable

@@ -11,6 +11,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/auth-context';
+import {
+  normalizeDietaryPreferences,
+  normalizeDislikedFoods,
+} from '@/lib/profile-normalization';
 import { supabase } from '@/lib/supabase';
 
 const DIETARY_OPTIONS = [
@@ -53,8 +57,10 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (profile) {
-      setDietaryPrefs(profile.dietary_preferences ?? []);
-      setDislikedFoods(profile.disliked_foods ?? []);
+      setDietaryPrefs(
+        normalizeDietaryPreferences(profile.dietary_preferences ?? []),
+      );
+      setDislikedFoods(normalizeDislikedFoods(profile.disliked_foods ?? []));
       setFrequency(profile.shopping_frequency_days ?? 7);
       setHouseholdSize(profile.household_size ?? 2);
     }
@@ -71,7 +77,12 @@ export default function ProfileScreen() {
         Alert.alert('Error', 'Could not save. Please try again.');
         return;
       }
-      await refreshProfile();
+      const refreshed = await refreshProfile();
+      if (!refreshed) {
+        Alert.alert('Error', 'Profile refresh failed. Please try again.');
+        return;
+      }
+
       setEditingSection(null);
     } catch {
       Alert.alert('Error', 'Something went wrong. Please try again.');
@@ -100,10 +111,10 @@ export default function ProfileScreen() {
 
   const addDislike = () => {
     const trimmed = dislikeInput.trim();
-    if (trimmed && !dislikedFoods.includes(trimmed)) {
-      setDislikedFoods((prev) => [...prev, trimmed]);
-      setDislikeInput('');
-    }
+    if (!trimmed) return;
+
+    setDislikedFoods((prev) => normalizeDislikedFoods([...prev, trimmed]));
+    setDislikeInput('');
   };
 
   return (
@@ -134,7 +145,10 @@ export default function ProfileScreen() {
             <Pressable
               onPress={() => {
                 if (editingSection === 'dietary') {
-                  saveField('dietary_preferences', dietaryPrefs);
+                  saveField(
+                    'dietary_preferences',
+                    normalizeDietaryPreferences(dietaryPrefs),
+                  );
                 } else {
                   setEditingSection('dietary');
                 }
@@ -185,7 +199,7 @@ export default function ProfileScreen() {
             <Pressable
               onPress={() => {
                 if (editingSection === 'dislikes') {
-                  saveField('disliked_foods', dislikedFoods);
+                  saveField('disliked_foods', normalizeDislikedFoods(dislikedFoods));
                 } else {
                   setEditingSection('dislikes');
                 }

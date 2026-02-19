@@ -1,5 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,9 +17,14 @@ const FREQUENCY_OPTIONS = [
 
 export default function FrequencyScreen() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [selectedDays, setSelectedDays] = useState(7);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!profile?.shopping_frequency_days) return;
+    setSelectedDays(profile.shopping_frequency_days);
+  }, [profile]);
 
   const handleNext = async () => {
     if (!session) return;

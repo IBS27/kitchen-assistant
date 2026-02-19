@@ -4,25 +4,41 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => {
+  // Ignore duplicate calls during fast refresh.
+});
 
 function RootNavigator() {
   const colorScheme = useColorScheme();
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, isProfileReady, profileError } = useAuth();
+  const hasHiddenSplashRef = useRef(false);
+
+  const isAuthStateReady =
+    !isLoading && (!session || isProfileReady || !!profileError);
 
   useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync();
+    if (!isAuthStateReady || hasHiddenSplashRef.current) {
+      return;
     }
-  }, [isLoading]);
 
-  if (isLoading) {
+    hasHiddenSplashRef.current = true;
+
+    void SplashScreen.hideAsync().catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      // iOS can race when the splash is already dismissed for this controller.
+      if (!message.includes('No native splash screen registered')) {
+        console.warn('Failed to hide splash screen:', error);
+      }
+    });
+  }, [isAuthStateReady]);
+
+  if (!isAuthStateReady) {
     return null;
   }
 

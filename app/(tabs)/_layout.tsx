@@ -1,17 +1,35 @@
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
 import { useAuth } from '@/contexts/auth-context';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ProfileLoadError } from '@/components/profile-load-error';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { profile } = useAuth();
+  const { profile, profileError, isProfileLoading } = useAuth();
 
-  if (profile && !profile.onboarding_completed_at) {
+  if (isProfileLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-kitchen-cream">
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (profileError) {
+    return <ProfileLoadError />;
+  }
+
+  if (!profile) {
+    return <Redirect href="/onboarding/dietary" />;
+  }
+
+  if (!profile.onboarding_completed_at) {
     return <Redirect href="/onboarding/dietary" />;
   }
 

@@ -1,25 +1,31 @@
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
+import { normalizeDislikedFoods } from '@/lib/profile-normalization';
 
 export default function DislikesScreen() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [foods, setFoods] = useState<string[]>([]);
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (!profile) return;
+    setFoods(normalizeDislikedFoods(profile.disliked_foods ?? []));
+  }, [profile]);
+
   const addFood = () => {
     const trimmed = input.trim();
-    if (trimmed && !foods.includes(trimmed)) {
-      setFoods((prev) => [...prev, trimmed]);
-      setInput('');
-    }
+    if (!trimmed) return;
+
+    setFoods((prev) => normalizeDislikedFoods([...prev, trimmed]));
+    setInput('');
   };
 
   const removeFood = (food: string) => {
@@ -30,9 +36,10 @@ export default function DislikesScreen() {
     if (!session) return;
     setSaving(true);
     try {
+      const normalizedFoods = normalizeDislikedFoods(foods);
       const { error } = await supabase
         .from('profiles')
-        .update({ disliked_foods: foods })
+        .update({ disliked_foods: normalizedFoods })
         .eq('id', session.user.id);
       if (error) {
         Alert.alert('Error', 'Could not save. Please try again.');
@@ -55,7 +62,7 @@ export default function DislikesScreen() {
           Any foods you dislike?
         </Text>
         <Text className="text-base text-kitchen-brown/60 mb-6">
-          We'll avoid suggesting these in your meals.
+          We&apos;ll avoid suggesting these in your meals.
         </Text>
 
         <View className="flex-row gap-2 mb-4">

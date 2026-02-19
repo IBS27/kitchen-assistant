@@ -1,4 +1,4 @@
-import { Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -8,6 +8,8 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -21,11 +23,13 @@ interface AuthContextValue {
   profile: Profile | null;
   profileError: string | null;
   isLoading: boolean;
+  isProfileLoading: boolean;
+  isProfileReady: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -35,35 +39,101 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const profileRequestRef = useRef(0);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    setProfileError(null);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+  const ensureProfile = useCallback(async (user: User) => {
+    const metadataName =
+      typeof user.user_metadata?.name === 'string'
+        ? user.user_metadata.name.trim()
+        : '';
+
+    const { error } = await supabase.from('profiles').upsert(
+      {
+        id: user.id,
+        display_name: metadataName || null,
+      },
+      { onConflict: 'id', ignoreDuplicates: true },
+    );
 
     if (error) {
-      console.error('Error fetching profile:', error.message);
+      console.error('Error ensuring profile:', error.message);
       setProfileError(error.message);
-      return;
+      return false;
     }
-    setProfile(data as Profile);
+
+    return true;
   }, []);
 
+  const loadProfileForSession = useCallback(
+    async (nextSession: Session | null) => {
+      const requestId = ++profileRequestRef.current;
+
+      if (!nextSession?.user) {
+        setProfile(null);
+        setProfileError(null);
+        setIsProfileLoading(false);
+        return false;
+      }
+
+      setIsProfileLoading(true);
+      setProfileError(null);
+
+      const ensuredProfile = await ensureProfile(nextSession.user);
+      if (profileRequestRef.current !== requestId) {
+        return false;
+      }
+
+      if (!ensuredProfile) {
+        setProfile(null);
+        setIsProfileLoading(false);
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', nextSession.user.id)
+        .single();
+
+      if (profileRequestRef.current !== requestId) {
+        return false;
+      }
+
+      if (error) {
+        console.error('Error fetching profile:', error.message);
+        setProfile(null);
+        setProfileError(error.message);
+        setIsProfileLoading(false);
+        return false;
+      }
+
+      setProfile(data as Profile);
+      setProfileError(null);
+      setIsProfileLoading(false);
+      return true;
+    },
+    [ensureProfile],
+  );
+
   const refreshProfile = useCallback(async () => {
-    if (session?.user.id) {
-      await fetchProfile(session.user.id);
+    if (!session) {
+      setProfile(null);
+      setProfileError(null);
+      return false;
     }
-  }, [session?.user.id, fetchProfile]);
+
+    return loadProfileForSession(session);
+  }, [session, loadProfileForSession]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    let isMounted = true;
+
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      if (!isMounted) return;
       setSession(s);
-      if (s?.user.id) {
-        fetchProfile(s.user.id).finally(() => setIsLoading(false));
-      } else {
+      await loadProfileForSession(s);
+      if (isMounted) {
         setIsLoading(false);
       }
     });
@@ -72,15 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
-      if (s?.user.id) {
-        fetchProfile(s.user.id);
-      } else {
-        setProfile(null);
-      }
+      void loadProfileForSession(s).finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
     });
 
-    return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+    return () => {
+      isMounted = false;
+      profileRequestRef.current += 1;
+      subscription.unsubscribe();
+    };
+  }, [loadProfileForSession]);
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
@@ -138,7 +212,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setProfileError(null);
+    setIsProfileLoading(false);
   }, []);
+
+  const isProfileReady = useMemo(
+    () => !!profile && !isProfileLoading && !profileError,
+    [profile, isProfileLoading, profileError],
+  );
 
   return (
     <AuthContext.Provider
@@ -147,6 +228,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         profileError,
         isLoading,
+        isProfileLoading,
+        isProfileReady,
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,

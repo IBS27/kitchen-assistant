@@ -1,5 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,9 +9,14 @@ import { useAuth } from '@/contexts/auth-context';
 
 export default function HouseholdScreen() {
   const router = useRouter();
-  const { session, refreshProfile } = useAuth();
+  const { session, profile, refreshProfile } = useAuth();
   const [size, setSize] = useState(2);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!profile?.household_size) return;
+    setSize(profile.household_size);
+  }, [profile]);
 
   const handleDone = async () => {
     if (!session) return;
@@ -28,7 +33,12 @@ export default function HouseholdScreen() {
         Alert.alert('Error', 'Could not save. Please try again.');
         return;
       }
-      await refreshProfile();
+      const refreshed = await refreshProfile();
+      if (!refreshed) {
+        Alert.alert('Error', 'Profile refresh failed. Please try again.');
+        return;
+      }
+
       router.replace('/(tabs)');
     } catch {
       Alert.alert('Error', 'Something went wrong. Please try again.');
@@ -46,7 +56,7 @@ export default function HouseholdScreen() {
           How many people in your household?
         </Text>
         <Text className="text-base text-kitchen-brown/60 mb-10">
-          We'll adjust portion sizes and shopping amounts.
+          We&apos;ll adjust portion sizes and shopping amounts.
         </Text>
 
         <View className="items-center gap-6">

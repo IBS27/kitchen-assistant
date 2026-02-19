@@ -8,7 +8,7 @@ export default function InventoryScreen() {
         Inventory
       </Text>
       <Text className="text-base text-kitchen-brown/50 text-center">
-        Coming in Phase 2 — track what's in your kitchen.
+        Coming in Phase 2 — track what&apos;s in your kitchen.
       </Text>
     </View>
   );

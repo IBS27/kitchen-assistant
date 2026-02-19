@@ -1,11 +1,12 @@
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
+import { normalizeDietaryPreferences } from '@/lib/profile-normalization';
 
 const DIETARY_OPTIONS = [
   'Vegetarian',
@@ -20,9 +21,17 @@ const DIETARY_OPTIONS = [
 
 export default function DietaryScreen() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    const savedPreferences = normalizeDietaryPreferences(
+      profile.dietary_preferences ?? [],
+    );
+    setSelected(savedPreferences);
+  }, [profile]);
 
   const toggleOption = (option: string) => {
     if (option === 'None') {
@@ -41,7 +50,7 @@ export default function DietaryScreen() {
     if (!session) return;
     setSaving(true);
     try {
-      const prefs = selected.includes('None') ? [] : selected;
+      const prefs = normalizeDietaryPreferences(selected);
       const { error } = await supabase
         .from('profiles')
         .update({ dietary_preferences: prefs })
@@ -67,7 +76,7 @@ export default function DietaryScreen() {
           Any dietary preferences?
         </Text>
         <Text className="text-base text-kitchen-brown/60 mb-6">
-          We'll tailor meal suggestions to match your diet.
+          We&apos;ll tailor meal suggestions to match your diet.
         </Text>
 
         <View className="flex-row flex-wrap gap-3">

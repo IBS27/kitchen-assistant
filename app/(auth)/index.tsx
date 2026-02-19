@@ -20,7 +20,7 @@ export default function WelcomeScreen() {
           <View className="flex-row items-center gap-4">
             <Text className="text-2xl">📦</Text>
             <Text className="text-base text-kitchen-brown flex-1">
-              Track what's in your kitchen
+              Track what&apos;s in your kitchen
             </Text>
           </View>
           <View className="flex-row items-center gap-4">

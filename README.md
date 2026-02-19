@@ -43,6 +43,10 @@ The initial version focuses on:
 - Basic learning from post-cook feedback
 - Shopping list generation aligned with user shopping frequency
 
+## Authentication (Current)
+- Current Phase 1 baseline: email/password + Google OAuth.
+- Temporary roadmap deviation (February 18, 2026): Apple Sign-In is intentionally deferred until after Phase 1 hardening.
+
 ## Out of Scope for MVP
 - Multi-user collaborative households
 - Advanced nutrition analytics
